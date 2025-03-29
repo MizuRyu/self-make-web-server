@@ -9,7 +9,8 @@ from threading import Thread
 import settings
 from common.http.request import HTTPRequest
 from common.http.response import HTTPResponse
-from common.utls.urls import URL_VIEW
+from common.urls.urls import URL_VIEW, url_patterns
+from common.urls.resolver import URLResolver
 
 class Worker(Thread):
     # 拡張子とMIMEタイプのマッピング
@@ -48,14 +49,11 @@ class Worker(Thread):
 
             request = self.parse_http_request(request_bytes)
 
-            # pathにマッチするurl_patternがある場合、viewからレスポンスを生成
-            for url_pattern, view in URL_VIEW.items():
-                match = self.url_pattern_match(url_pattern, request.path)
-                if match:
-                    request.params.update(match.groupdict())
-                    response = view(request)
-                    break
+            view = URLResolver().resolve(request)
             
+            if view:
+                response = view(request)
+                
             # pathがnow, show_request, parameter以外の場合、静的ファイルからレスポンスを生成
             else:
                 try:
@@ -165,11 +163,3 @@ class Worker(Thread):
             headers=headers,
             body=req_body
         )
-    
-    def url_pattern_match(self, url_pattern: str, path: str) -> Optional[Match]:
-        """
-        URLパターンを正規表現パターンへ変換
-        """
-        # '/user/<user_id>/profile' -> '/user/(?P<user_id>[^/]+)/profile'
-        re_pattern = re.sub(r"<(.+?)>", r"(?P<\1>[^/]+)", url_pattern)
-        return re.match(re_pattern, path)
