@@ -102,19 +102,26 @@ class WorkerThread(Thread):
         )
         return header
     
-    def parse_http_request(self, request) -> Tuple[str, str, str, bytes, bytes]:
+    def parse_http_request(self, request) -> Tuple[str, str, str, dict, bytes]:
         """
         リクエストデータをパースし、
         method: str,
         path: str,
         http_version: str,
         extension: str,
-        request_header: bytes,
+        request_header: dict,
         request_body: bytes
         に分割する
         """
-        req_lines, remain = request.split("\r\n", 1)
-        req_header, req_body = remain.split("\r\n\r\n", 1)
-        method, path, http_version = req_lines.split(" ", 2)
+        req_lines, remain = request.split(b"\r\n", 1)
+        req_header, req_body = remain.split(b"\r\n\r\n", 1)
+        method, path, http_version = req_lines.decode().split(" ")
         ext = path.split(".")[-1] if "." in path else ""
-        return method, path, http_version, ext, req_header.encode(), req_body.encode()
+
+        headers = {}
+        for header_row in req_header.decode().split("\r\n"):
+            if ": " in header_row:
+                key, value = header_row.split(": ", 1)
+                headers[key] = value
+
+        return method, path, http_version, ext, headers, req_body
