@@ -2,7 +2,8 @@ from typing import Callable, Optional
 
 from common.http.request import HTTPRequest
 from common.http.response import HTTPResponse
-from urls import url_patterns
+from common.views.static import static
+from common.urls.urls import url_patterns
 
 class URLResolver:
     def resolve(self, request: HTTPRequest) -> Optional[Callable[[HTTPRequest], HTTPResponse]]:
@@ -15,4 +16,6 @@ class URLResolver:
             if match:
                 request.params.update(match.groupdict())
                 return url_pattern.view
-        return None
+            
+        # pathがstaticの場合、静的ファイルからレスポンスを生成
+        return static

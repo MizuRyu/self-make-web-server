@@ -7,7 +7,7 @@ from threading import Thread
 
 from common.http.request import HTTPRequest
 from common.http.response import HTTPResponse
-from common.utls.urls import URL_VIEW
+from common.urls.urls import URL_VIEW
 
 class WorkerThread(Thread):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -49,35 +49,19 @@ class Worker(Thread):
 
             request = self.parse_http_request(request_bytes)
 
+            # URL解決
             view = URLResolver().resolve(request)
             
-            if view:
-                response = view(request)
+            # レスポンスを生成
+            response = view(request)
                 
-            # pathがnow, show_request, parameter以外の場合、静的ファイルからレスポンスを生成
-            else:
-                try:
-                    response_body = self.get_static_file_content(request.path)
-                    content_type = None
-                    response = HTTPResponse(
-                        status_code=200,
-                        content_type=content_type,
-                        body=response_body,
-                    )
-
-                except FileNotFoundError:
-                    # ファイルが見つからなかった場合は404を返す
-                    response_body = b"<html><body><h1>404 Not Found</h1></body></html>"
-                    content_type = "text/html;"
-                    response = HTTPResponse(
-                        status_code=404,
-                        content_type=content_type,
-                        body=response_body,
-                    )
-
+            # レスポンスヘッダーを生成
             response_header = self.build_header(response, request)
+
+            # レスポンス全体を生成
             response_bytes = (response_header + "\r\n").encode() + response.body
             
+            # クライアントへレスポンスを送信
             self.client_socket.send(response_bytes)
         except Exception as e:
             print(f"=== [Worker] Error: {e} ===")
