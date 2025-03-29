@@ -4,7 +4,7 @@ from datetime import datetime
 import traceback
 from typing import Tuple
 
-class WebServer:
+class SingleThreadWebServer:
     """
     Webサーバを表すクラス
     """
@@ -144,5 +144,5 @@ class WebServer:
         return method, path, http_version, ext, req_header.encode(), req_body.encode()
 
 if __name__ == "__main__":
-    server = WebServer()
+    server = SingleThreadWebServer()
     server.serve()
