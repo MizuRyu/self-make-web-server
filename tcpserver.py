@@ -4,7 +4,7 @@ class TCPServer:
     """
     TCP通信を行うサーバーを表すクラス
     """
-    def serve(sef):
+    def serve(self):
         """
         サーバを起動
         """
