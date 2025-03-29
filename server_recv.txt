@@ -1,6 +1,7 @@
 GET / HTTP/1.1
 Host: localhost:8080
 Connection: keep-alive
+Cache-Control: max-age=0
 sec-ch-ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
 sec-ch-ua-mobile: ?0
 sec-ch-ua-platform: "macOS"
