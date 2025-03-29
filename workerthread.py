@@ -9,6 +9,7 @@ import common.http.views as views
 
 from common.http.request import HTTPRequest
 from common.http.response import HTTPResponse
+from common.utls.urls import URL_VIEW
 
 class WorkerThread(Thread):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,12 +22,6 @@ class WorkerThread(Thread):
         "png": "image/png",
         "jpg": "image/jpeg",
         "gif": "image/gif",
-    }
-
-    URL_VIEW = {
-        "/now": views.now,
-        "/show_request": views.show_request,
-        "/parameters": views.parameters,
     }
 
     STATUS_LINES = {
@@ -47,16 +42,16 @@ class WorkerThread(Thread):
         """
         try:
 
-            request = self.client_socket.recv(4096)
+            request_bytes = self.client_socket.recv(4096)
 
             # クライアントから送られてきたデータをファイルに書き出す
             with open("server_recv.txt", "wb") as f:
-                f.write(request)
+                f.write(request_bytes)
 
-            request = self.parse_http_request(request)
+            request = self.parse_http_request(request_bytes)
 
-            if request.path in self.URL_VIEW:
-                view = self.URL_VIEW[request.path]
+            if request.path in URL_VIEW:
+                view = URL_VIEW[request.path]
                 response = view(request)
 
             # pathがnow, show_request, parameter以外の場合、静的ファイルからレスポンスを生成
@@ -73,7 +68,7 @@ class WorkerThread(Thread):
                 except FileNotFoundError:
                     # ファイルが見つからなかった場合は404を返す
                     response_body = b"<html><body><h1>404 Not Found</h1></body></html>"
-                    content_type = "text/html"
+                    content_type = "text/html;"
                     response = HTTPResponse(
                         status_code=404,
                         content_type=content_type,
@@ -81,7 +76,8 @@ class WorkerThread(Thread):
                     )
 
             response_header = self.build_header(response, request)
-            response_bytes = (response_header + "\r\n\r\n").encode() + response.body
+            response_bytes = (response_header + "\r\n").encode() + response.body
+            
             self.client_socket.send(response_bytes)
         except Exception as e:
             print(f"=== [Worker] Error: {e} ===")
@@ -106,17 +102,14 @@ class WorkerThread(Thread):
         return server_socket
 
     def get_static_file_content(self, path: str) -> bytes:
-        """
-        リクエストpathから、staticファイルの内容を取得する
-        """
         try:
             relative_path = path.lstrip("/")
             static_file_path = os.path.join(self.STATIC_ROOT, relative_path)
+
             with open(static_file_path, "rb") as f:
                 return f.read()
         except FileNotFoundError:
             raise
-            
     def build_header(self, response: HTTPResponse, request: HTTPRequest) -> str:
         """
         HTTPレスポンスヘッダを設定
@@ -124,7 +117,7 @@ class WorkerThread(Thread):
         reason = self.STATUS_LINES.get(response.status_code, "OK")
         if response.content_type is None:
             if "." in request.path:
-                extension = request.path.split(".")[-1]
+                extension = request.path.rsplit(".", maxsplit=1)[-1]
             else:
                 extension = ""
 
@@ -154,7 +147,6 @@ class WorkerThread(Thread):
         req_lines, remain = request.split(b"\r\n", 1)
         req_header, req_body = remain.split(b"\r\n\r\n", 1)
         method, path, http_version = req_lines.decode().split(" ")
-        ext = path.split(".")[-1] if "." in path else ""
 
         headers = {}
         for header_row in req_header.decode().split("\r\n"):
