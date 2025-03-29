@@ -5,14 +5,13 @@ import traceback
 from typing import Tuple
 from threading import Thread
 
+import settings
 from common.http.request import HTTPRequest
 from common.http.response import HTTPResponse
 from common.utls.urls import URL_VIEW
 
-class WorkerThread(Thread):
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    STATIC_ROOT = os.path.join(BASE_DIR, "static")
-
+class Worker(Thread):
+    # 拡張子とMIMEタイプのマッピング
     MIME_TYPES = {
         "html": "text/html; charset=utf-8",
         "css": "text/css",
@@ -101,8 +100,10 @@ class WorkerThread(Thread):
 
     def get_static_file_content(self, path: str) -> bytes:
         try:
+            default_static_root = os.path.join(os.path.dirname(__file__), "../../static")
+            static_root = getattr(settings, "STATIC_ROOT", default_static_root)
             relative_path = path.lstrip("/")
-            static_file_path = os.path.join(self.STATIC_ROOT, relative_path)
+            static_file_path = os.path.join(static_root, relative_path)
 
             with open(static_file_path, "rb") as f:
                 return f.read()

@@ -2,9 +2,9 @@ import socket
 
 from workerthread import WorkerThread
 
-class MultiThreadWebServer:
+class Server:
     """
-    並列処理に対応したWebサーバ
+    Webサーバ
     """
 
     def serve(self):
@@ -12,7 +12,7 @@ class MultiThreadWebServer:
         サーバを起動
         """
 
-        print("=== Starting TCP Server ===")
+        print("=== Starting Web Server ===")
 
         try:
             # サーバソケットの作成
