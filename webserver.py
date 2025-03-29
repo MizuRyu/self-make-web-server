@@ -1,9 +1,15 @@
+import os
 import socket
 from datetime import datetime
+
+
 class WebServer:
     """
     Webサーバを表すクラス
     """
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    STATIC_ROOT = os.path.join(BASE_DIR, "static")
+
     def serve(self):
         """
         サーバを起動
@@ -31,37 +37,60 @@ class WebServer:
             with open("server_recv.txt", "wb") as f:
                 f.write(req_data)
 
-            response_body = self.get_body()
-            response_header = self.get_header(response_body)
-            response = f"{response_header}\r\n{response_body}".encode()
 
+            static_file_path = self.parse_req(req_data.decode())
+
+            try:
+                # index.html読み込み
+                with open(static_file_path, "rb") as f:
+                    response_body = f.read()
+                    
+                response_header = self.build_header(200, len(response_body))
+
+            except FileNotFoundError:
+                # ファイルが見つからなかった場合は404を返す
+                response_body = b"<html><body><h1>404 Not Found</h1></body></html>"
+                response_header = self.build_header(404, len(response_body))
+
+            response = (response_header + "\r\n").encode() + response_body
             client_socket.send(response)
-            
+                
             # コネクションを終了する
             client_socket.close()
 
         finally:
             print("=== Closing TCP Server ===")
 
-    def get_header(self, response_body):
+    def build_header(self, status_code, content_length):
         """
         HTTPレスポンスヘッダを設定
         """
-        header = ""
-        header = "HTTP/1.1 200 OK\r\n"
-        header += f"Date: {datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')}\r\n"
-        header += "Server: DemoServer\r\n"
-        header += f"Content-Length: {len(response_body.encode())}\r\n"
-        header += "Connecion: close\r\n"
-        header += "Content-Type: text/html\r\n"
+        status_messages = {
+            200: "OK",
+            404: "Not Found",
+        }
+        reason = status_messages.get(status_code, "OK")
+        header = (
+            f"HTTP/1.1 {status_code} {reason}\r\n"
+            f"Date: {datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}\r\n"
+            "Server: DemoServer\r\n"
+            f"Content-Length: {content_length}\r\n"
+            "Connection: close\r\n"
+            "Content-Type: text/html\r\n"
+        )
         return header
     
-    def get_body(self):
+    def parse_req(self, request):
         """
-        HTTPレスポンスボディを設定
+        リクエストデータをパースし、静的ファイルのパスをマッピング
         """
-        body = "<html><body><h1>Hello, World!</h1></body></html>"
-        return body
+        req_lines, remain = request.split("\r\n", 1)
+        req_header, req_body = remain.split("\r\n\r\n", 1)
+        method, path, http_version = req_lines.split(" ", 2)
+        # 相対パスに変換しておく
+        relative_path = path.lstrip("/")
+        static_file_path = os.path.join(self.STATIC_ROOT, relative_path)
+        return static_file_path
 
 if __name__ == "__main__":
     server = WebServer()
