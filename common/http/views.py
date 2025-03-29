@@ -46,7 +46,7 @@ def show_request(
                 {request.method} {request.path} {request.http_version}
             </p>
             <h1>Headers:</h1>
-            <pre>{pformat(request.header)}</pre>
+            <pre>{pformat(request.headers)}</pre>
             <h1>Body:</h1>
             <pre>{request.body.decode("utf-8", "ignore")}</pre>
             
