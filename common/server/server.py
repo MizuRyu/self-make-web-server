@@ -1,6 +1,6 @@
 import socket
 
-from workerthread import WorkerThread
+from common.server.worker import Worker
 
 class Server:
     """
@@ -23,7 +23,7 @@ class Server:
                 print(f"=== [Server] Connected from remote_addr: {address} ===")
 
                 # WorkerThreadを生成してリクエストを処理する
-                worker_thread = WorkerThread(client_socket, address)
+                worker_thread = Worker(client_socket, address)
                 worker_thread.start()
 
         finally:

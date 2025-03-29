@@ -10,7 +10,7 @@ from common.http.response import HTTPResponse
 
 def now(
      request: HTTPRequest
-    ) -> Tuple[bytes, Optional[str], int]:
+    ) -> HTTPResponse:
     """
     現在時刻を表示するHTMLを生成
     """
@@ -34,7 +34,7 @@ def now(
 
 def show_request(
         request: HTTPRequest
-    ) -> Tuple[bytes, Optional[str], int]:
+    ) -> HTTPResponse:
     """
     HTTPリクエストを表示するHTMLを生成
     """
@@ -66,7 +66,7 @@ def show_request(
 
 def parameters(
         request: HTTPRequest
-    ) -> Tuple[bytes, Optional[str], int]:
+    ) -> HTTPResponse:
     """
     POSTパラメータを表示するHTMLを生成
     """
@@ -88,6 +88,27 @@ def parameters(
         response_body = textwrap.dedent(html).encode()
         content_type = "text/html; charset=utf-8"
 
+    return HTTPResponse(
+        status_code=status_code,
+        content_type=content_type,
+        body=response_body
+    )
+
+def user_profile(
+        request: HTTPRequest
+    ) -> HTTPResponse:
+    user_id = request.params.get("user_id")
+    html = f"""\
+        <html>
+        <body>
+            <h1>User Profile</h1>
+            <p>User ID: {user_id}</p>
+        </body>
+        </html>
+    """
+    response_body = textwrap.dedent(html).encode()
+    content_type = "text/html; charset=utf-8"
+    status_code = 200
     return HTTPResponse(
         status_code=status_code,
         content_type=content_type,
