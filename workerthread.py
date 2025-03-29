@@ -5,17 +5,34 @@ import traceback
 from typing import Tuple
 from threading import Thread
 
+import common.http.views as views
+
+from common.http.request import HTTPRequest
+from common.http.response import HTTPResponse
+
 class WorkerThread(Thread):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
     MIME_TYPES = {
-        "html": "text/html",
+        "html": "text/html; charset=utf-8",
         "css": "text/css",
         "js": "application/javascript",
         "png": "image/png",
         "jpg": "image/jpeg",
         "gif": "image/gif",
+    }
+
+    URL_VIEW = {
+        "/now": views.now,
+        "/show_request": views.show_request,
+        "/parameters": views.parameters,
+    }
+
+    STATUS_LINES = {
+        200: "200 OK",
+        404: "404 Not Found",
+        405: "405 Method Not Allowed",
     }
 
     def __init__(self, client_socket: socket, address: Tuple[str, int]):
@@ -36,19 +53,36 @@ class WorkerThread(Thread):
             with open("server_recv.txt", "wb") as f:
                 f.write(request)
 
-            method, path, http_version, ext, req_header, req_body = self.parse_http_request(request.decode())
+            request = self.parse_http_request(request)
 
-            try:
-                response_body = self.get_static_file_content(path)
-                response_header = self.build_header(200, len(response_body), ext)
+            if request.path in self.URL_VIEW:
+                view = self.URL_VIEW[request.path]
+                response = view(request)
 
-            except FileNotFoundError:
-                # ファイルが見つからなかった場合は404を返す
-                response_body = b"<html><body><h1>404 Not Found</h1></body></html>"
-                response_header = self.build_header(404, len(response_body), ext)
+            # pathがnow, show_request, parameter以外の場合、静的ファイルからレスポンスを生成
+            else:
+                try:
+                    response_body = self.get_static_file_content(request.path)
+                    content_type = None
+                    response = HTTPResponse(
+                        status_code=200,
+                        content_type=content_type,
+                        body=response_body,
+                    )
 
-            response = (response_header + "\r\n").encode() + response_body
-            self.client_socket.send(response)
+                except FileNotFoundError:
+                    # ファイルが見つからなかった場合は404を返す
+                    response_body = b"<html><body><h1>404 Not Found</h1></body></html>"
+                    content_type = "text/html"
+                    response = HTTPResponse(
+                        status_code=404,
+                        content_type=content_type,
+                        body=response_body,
+                    )
+
+            response_header = self.build_header(response, request)
+            response_bytes = (response_header + "\r\n\r\n").encode() + response.body
+            self.client_socket.send(response_bytes)
         except Exception as e:
             print(f"=== [Worker] Error: {e} ===")
             traceback.print_exc()
@@ -83,26 +117,30 @@ class WorkerThread(Thread):
         except FileNotFoundError:
             raise
             
-    def build_header(self, status_code, content_length, extension):
+    def build_header(self, response: HTTPResponse, request: HTTPRequest) -> str:
         """
         HTTPレスポンスヘッダを設定
         """
-        status_messages = {
-            200: "OK",
-            404: "Not Found",
-        }
-        reason = status_messages.get(status_code, "OK")
+        reason = self.STATUS_LINES.get(response.status_code, "OK")
+        if response.content_type is None:
+            if "." in request.path:
+                extension = request.path.split(".")[-1]
+            else:
+                extension = ""
+
+            # 拡張子がない場合は、デフォルトのMIMEタイプを設定
+            response.content_type = self.MIME_TYPES.get(extension, "application/octet-stream")
         header = (
-            f"HTTP/1.1 {status_code} {reason}\r\n"
+            f"HTTP/1.1 {response.status_code} {reason}\r\n"
             f"Date: {datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}\r\n"
             "Server: DemoServer\r\n"
-            f"Content-Length: {content_length}\r\n"
+            f"Content-Length: {len(response.body)}\r\n"
             "Connection: close\r\n"
-            f"Content-Type: {self.MIME_TYPES.get(extension, "application/octet-stream")}\r\n"
+            f"Content-Type: {response.content_type}\r\n"
         )
         return header
     
-    def parse_http_request(self, request) -> Tuple[str, str, str, dict, bytes]:
+    def parse_http_request(self, request) -> HTTPRequest:
         """
         リクエストデータをパースし、
         method: str,
@@ -124,4 +162,10 @@ class WorkerThread(Thread):
                 key, value = header_row.split(": ", 1)
                 headers[key] = value
 
-        return method, path, http_version, ext, headers, req_body
+        return HTTPRequest(
+            method=method,
+            path=path,
+            http_version=http_version,
+            headers=headers,
+            body=req_body
+        )
