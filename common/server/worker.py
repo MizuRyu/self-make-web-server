@@ -25,6 +25,7 @@ class Worker(Thread):
 
     STATUS_LINES = {
         200: "200 OK",
+        302: "302 Found",
         404: "404 Not Found",
         405: "405 Method Not Allowed",
     }
@@ -54,6 +55,10 @@ class Worker(Thread):
             
             # レスポンスを生成
             response = view(request)
+
+            if isinstance(response.body, str):
+                # レスポンスボディが文字列の場合、バイト列に変換
+                response.body = response.body.encode()
                 
             # レスポンスヘッダーを生成
             response_header = self.build_header(response, request)
@@ -104,11 +109,12 @@ class Worker(Thread):
         if response.content_type is None:
             if "." in request.path:
                 extension = request.path.rsplit(".", maxsplit=1)[-1]
+                # 対応していない拡張子の場合、デフォルトのMIMEタイプを設定
+                response.content_type = self.MIME_TYPES.get(extension, "application/octet-stream")
             else:
-                extension = ""
+                # pathに拡張子がない場合は、html扱いとする
+                response.content_type = "text/html; charset=utf-8"
 
-            # 拡張子がない場合は、デフォルトのMIMEタイプを設定
-            response.content_type = self.MIME_TYPES.get(extension, "application/octet-stream")
         header = (
             f"HTTP/1.1 {response.status_code} {reason}\r\n"
             f"Date: {datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}\r\n"
@@ -117,6 +123,12 @@ class Worker(Thread):
             "Connection: close\r\n"
             f"Content-Type: {response.content_type}\r\n"
         )
+
+        for header_name, header_value in response.headers.items():
+            header += f"{header_name}: {header_value}\r\n"
+
+        for cookie_name, cookie_value in response.cookies.items():
+            header += f"Set-Cookie: {cookie_name}={cookie_value};\r\n"
         return header
     
     def parse_http_request(self, request) -> HTTPRequest:
@@ -125,7 +137,6 @@ class Worker(Thread):
         method: str,
         path: str,
         http_version: str,
-        extension: str,
         request_header: dict,
         request_body: bytes
         に分割する
@@ -140,10 +151,18 @@ class Worker(Thread):
                 key, value = header_row.split(": ", 1)
                 headers[key] = value
 
+        cookies = {}
+        if "Cookie" in headers:
+            cookie_strings = headers["Cookie"].split("; ")
+            for cookie_string in cookie_strings:
+                key, value = cookie_string.split("=", 1)
+                cookies[key] = value
+
         return HTTPRequest(
             method=method,
             path=path,
             http_version=http_version,
             headers=headers,
+            cookies=cookies,
             body=req_body
         )
