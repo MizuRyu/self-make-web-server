@@ -4,10 +4,12 @@ from datetime import datetime
 from pprint import pformat
 from typing import Tuple, Optional
 
+from common.http.cookie import Cookie
 from common.http.request import HTTPRequest
 from common.http.response import HTTPResponse
 from common.templates.renderer import render
-import os
+
+
 def now(
      request: HTTPRequest
     ) -> HTTPResponse:
@@ -120,7 +122,10 @@ def login(
         email = post_params.get("email", [""])[0]
 
         headers = {"Location": "/welcome"}
-        cookies = {"username": username, "email": email}
+        cookies = [
+            Cookie(name="username", value=username, max_age=30),
+            Cookie(name="email", value=email, max_age=30)
+        ]
         return HTTPResponse(
             status_code=302,
             headers=headers,

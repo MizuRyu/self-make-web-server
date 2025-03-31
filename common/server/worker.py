@@ -127,8 +127,24 @@ class Worker(Thread):
         for header_name, header_value in response.headers.items():
             header += f"{header_name}: {header_value}\r\n"
 
-        for cookie_name, cookie_value in response.cookies.items():
-            header += f"Set-Cookie: {cookie_name}={cookie_value};\r\n"
+        # Cookieヘッダーの生成
+        for cookie in response.cookies:
+            base_cookie_header = f"Set-Cookie: {cookie.name}={cookie.value}"
+            if cookie.expires is not None:
+                base_cookie_header += f"; Expires={cookie.expires.strftime('%a, %d %b %Y %H:%M:%S GMT')}"
+            if cookie.max_age is not None:
+                base_cookie_header += f"; Max-Age={cookie.max_age}"
+            if cookie.domain:
+                base_cookie_header += f"; Domain={cookie.domain}"
+            if cookie.path:
+                base_cookie_header += f"; Path={cookie.path}"
+            if cookie.secure:
+                base_cookie_header += "; Secure"
+            if cookie.http_only:
+                base_cookie_header += "; HttpOnly"
+
+            header += base_cookie_header + "\r\n"
+
         return header
     
     def parse_http_request(self, request) -> HTTPRequest:
