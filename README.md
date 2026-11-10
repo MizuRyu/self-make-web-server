@@ -47,3 +47,7 @@ python common/start.py   # リポジトリ直下で実行する。localhost:8080
 
 - `http://localhost:8080/` のように末尾が `/` の URL では、応答を返さずに接続が切れます。ディレクトリを静的ファイルとして開こうとして失敗するためです。
 - HTTPS と keep-alive には対応していません。接続はリクエストごとに閉じます。
+
+## ライセンス
+
+[MIT](LICENSE)
